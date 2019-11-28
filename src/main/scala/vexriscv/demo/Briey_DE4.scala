@@ -185,16 +185,16 @@ class QuartusDDR extends Bundle {
   val memory_mem_ras_n            = out (Bool())
   val memory_mem_cas_n            = out (Bool())
   val memory_mem_we_n             = out (Bool())
-  val memory_mem_dq               = Analog(Bits(64 bits))
-  val memory_mem_dqs              = Analog(Bits(8 bits))
-  val memory_mem_dqs_n            = Analog(Bits(8 bits))
+  val memory_mem_dq               = out (Bits(64 bits)) // WARNING: inout
+  val memory_mem_dqs              = out (Bits(8 bits)) // WARNING: inout
+  val memory_mem_dqs_n            = out (Bits(8 bits)) // WARNING: inout
   val memory_mem_odt              = out (UInt((2) bits))
 }
 
 trait QuartusClocksReset extends Bundle {
   //inputs
   //"NO_BUFFER" clock source (must be connected to IBUF outside of IP)
-  val refclk_clk               = in (Bool())
+  val refclk_clk            = in (Bool())
   val reset_reset_n         = in (Bool())
   val dimmclk_clk           = out (Bool())
 }
@@ -217,53 +217,136 @@ class qsys extends BlackBox {
     val axi4_awaddr = in (UInt((32) bits))
     val axi4_awlen = in (UInt((8) bits))
     val axi4_awsize = in (UInt((3) bits))
-    val axi4_awburst = in (UInt((2) bits))
-    val axi4_awlock = in (UInt((1) bits))
+    val axi4_awburst = in (Bits((2) bits))
+    val axi4_awlock = in (Bits((1) bits))
     val axi4_awcache = in (UInt((4) bits))
-    val axi4_awprot = in (UInt((3) bits))
-    val axi4_awqos = in (UInt((4) bits))
+    val axi4_awprot = in (Bits((3) bits))
+    val axi4_awqos = in (Bits((4) bits))
     val axi4_awvalid = in (Bool())
     val axi4_awready = out (Bool())
     //slave interface write data ports
-    val axi4_wdata = in (UInt((64) bits))
-    val axi4_wstrb = in (UInt((8) bits))
+    val axi4_wdata = in (Bits((32) bits))
+    val axi4_wstrb = in (Bits((4) bits))
     val axi4_wlast = in (Bool())
     val axi4_wvalid = in (Bool())
     val axi4_wready = out (Bool())
     //slave interface write response ports
     val axi4_bready = in (Bool())
     val axi4_bid = out (UInt((4) bits))
-    val axi4_bresp = out (UInt((2) bits))
+    val axi4_bresp = out (Bits((2) bits))
     val axi4_bvalid = out (Bool())
     //slave interface read address ports
     val axi4_arid = in (UInt((4) bits))
     val axi4_araddr = in (UInt((32) bits))
     val axi4_arlen = in (UInt((8) bits))
     val axi4_arsize = in (UInt((3) bits))
-    val axi4_arburst = in (UInt((2) bits))
-    val axi4_arlock = in (UInt((1) bits))
+    val axi4_arburst = in (Bits((2) bits))
+    val axi4_arlock = in (Bits((1) bits))
     val axi4_arcache = in (UInt((4) bits))
-    val axi4_arprot = in (UInt((3) bits))
-    val axi4_arqos = in (UInt((4) bits))
+    val axi4_arprot = in (Bits((3) bits))
+    val axi4_arqos = in (Bits((4) bits))
     val axi4_arvalid = in (Bool())
     val axi4_arready = out (Bool())
     //slave interface read data ports
     val axi4_rready = in (Bool())
     val axi4_rid = out (UInt((4) bits))
-    val axi4_rdata = out (UInt((64) bits))
-    val axi4_rresp = out (UInt((2) bits))
+    val axi4_rdata = out (Bits((32) bits))
+    val axi4_rresp = out (Bits((2) bits))
     val axi4_rlast = out (Bool())
     val axi4_rvalid = out (Bool())
   }
+  noIoPrefix() // remove io_ prefix
 }
 
-class Axi4SharedToQSYS(axiConfig: Axi4Config) extends Component {
+class Axi4ToQSYS(axiConfig: Axi4Config, offset: BigInt) extends Component {
   val io = new Bundle {
-    val axi = slave(Axi4Shared(axiConfig))
-    val qsysio = new QuartusIO with QuartusClocksReset
+    val axi = slave(Axi4(axiConfig))
+    val port = new QuartusIO
+    val ckrst = new Bundle with QuartusClocksReset
   }
   
-  val capacity: BigInt = 0x80000000l
+  val capacity: BigInt = 0x40000000l
+  val axi_async = io.axi
+  val blackbox = new qsys
+
+  //inouts
+  io.port.memory_mem_dq := blackbox.io.memory_mem_dq
+  io.port.memory_mem_dqs_n := blackbox.io.memory_mem_dqs_n
+  io.port.memory_mem_dqs := blackbox.io.memory_mem_dqs
+
+  //outputs
+  io.port.memory_mem_a            := blackbox.io.memory_mem_a
+  io.port.memory_mem_ba           := blackbox.io.memory_mem_ba
+  io.port.memory_mem_ras_n        := blackbox.io.memory_mem_ras_n
+  io.port.memory_mem_cas_n        := blackbox.io.memory_mem_cas_n
+  io.port.memory_mem_we_n         := blackbox.io.memory_mem_we_n
+  io.port.memory_mem_ck           := blackbox.io.memory_mem_ck
+  io.port.memory_mem_ck_n         := blackbox.io.memory_mem_ck_n
+  io.port.memory_mem_cke          := blackbox.io.memory_mem_cke
+  io.port.memory_mem_cs_n         := blackbox.io.memory_mem_cs_n
+  io.port.memory_mem_dm           := blackbox.io.memory_mem_dm
+  io.port.memory_mem_odt          := blackbox.io.memory_mem_odt
+
+  //inputs
+  //NO_BUFFER clock
+  blackbox.io.refclk_clk       := io.ckrst.refclk_clk
+  blackbox.io.reset_reset_n := io.ckrst.reset_reset_n
+  io.ckrst.dimmclk_clk       := blackbox.io.dimmclk_clk
+  blackbox.io.oct_rdn       := io.port.oct_rdn
+  blackbox.io.oct_rup       := io.port.oct_rup
+  io.port.mem_status_local_init_done := blackbox.io.mem_status_local_init_done
+  io.port.mem_status_local_cal_success := blackbox.io.mem_status_local_cal_success
+  io.port.mem_status_local_cal_fail := blackbox.io.mem_status_local_cal_fail
+
+  val awaddr = axi_async.aw.addr - offset
+  val araddr = axi_async.ar.addr - offset
+
+  //slave AXI interface write address ports
+  blackbox.io.axi4_awid    := axi_async.aw.id
+  blackbox.io.axi4_awaddr  := awaddr //truncated
+  blackbox.io.axi4_awlen   := axi_async.aw.len
+  blackbox.io.axi4_awsize  := axi_async.aw.size
+  blackbox.io.axi4_awburst := axi_async.aw.burst
+  blackbox.io.axi4_awlock  := axi_async.aw.lock
+  blackbox.io.axi4_awcache := U"0011"
+  blackbox.io.axi4_awprot  := axi_async.aw.prot
+  blackbox.io.axi4_awqos   := axi_async.aw.qos
+  blackbox.io.axi4_awvalid := axi_async.aw.valid
+  axi_async.aw.ready        := blackbox.io.axi4_awready
+
+  //slave interface write data ports
+  blackbox.io.axi4_wdata   := axi_async.w.data
+  blackbox.io.axi4_wstrb   := axi_async.w.strb
+  blackbox.io.axi4_wlast   := axi_async.w.last
+  blackbox.io.axi4_wvalid  := axi_async.w.valid
+  axi_async.w.ready         := blackbox.io.axi4_wready
+
+  //slave interface write response
+  blackbox.io.axi4_bready  := axi_async.b.ready
+  axi_async.b.id       := blackbox.io.axi4_bid
+  axi_async.b.resp     := blackbox.io.axi4_bresp
+  axi_async.b.valid         := blackbox.io.axi4_bvalid
+
+  //slave AXI interface read address ports
+  blackbox.io.axi4_arid    := axi_async.ar.id
+  blackbox.io.axi4_araddr  := araddr // truncated
+  blackbox.io.axi4_arlen   := axi_async.ar.len
+  blackbox.io.axi4_arsize  := axi_async.ar.size
+  blackbox.io.axi4_arburst := axi_async.ar.burst
+  blackbox.io.axi4_arlock  := axi_async.ar.lock
+  blackbox.io.axi4_arcache := U"0011"
+  blackbox.io.axi4_arprot  := axi_async.ar.prot
+  blackbox.io.axi4_arqos   := axi_async.ar.qos
+  blackbox.io.axi4_arvalid := axi_async.ar.valid
+  axi_async.ar.ready        := blackbox.io.axi4_arready
+
+  //slace AXI interface read data ports
+  blackbox.io.axi4_rready  := axi_async.r.ready
+  axi_async.r.id       := blackbox.io.axi4_rid
+  axi_async.r.data     := blackbox.io.axi4_rdata
+  axi_async.r.resp     := blackbox.io.axi4_rresp
+  axi_async.r.last     := blackbox.io.axi4_rlast
+  axi_async.r.valid         := blackbox.io.axi4_rvalid
 }
 
 class BrieyDE4(config: BrieyDE4Config) extends Component{
@@ -280,10 +363,12 @@ class BrieyDE4(config: BrieyDE4Config) extends Component{
   val io = new Bundle{
     //Clocks / reset
     val asyncReset = in Bool
-    val axiClk     = in Bool
+    val ddr_reset_n = in Bool
+    val refClk     = in Bool
 
     //Main components IO
     val jtag       = slave(Jtag())
+    val port       = new QuartusIO
 
     //Peripherals IO
     val gpioA         = master(TriStateArray(16 bits))
@@ -293,8 +378,11 @@ class BrieyDE4(config: BrieyDE4Config) extends Component{
     val coreInterrupt = in Bool
   }
 
+  // The system (AXI) clock
+  val axiClk     = Bool
+
   val resetCtrlClockDomain = ClockDomain(
-    clock = io.axiClk,
+    clock = axiClk,
     config = ClockDomainConfig(
       resetKind = BOOT
     )
@@ -321,13 +409,13 @@ class BrieyDE4(config: BrieyDE4Config) extends Component{
   }
 
   val axiClockDomain = ClockDomain(
-    clock = io.axiClk,
+    clock = axiClk,
     reset = resetCtrl.axiReset,
     frequency = FixedFrequency(axiFrequency) //The frequency information is used by the SDRAM controller
   )
 
   val debugClockDomain = ClockDomain(
-    clock = io.axiClk,
+    clock = axiClk,
     reset = resetCtrl.systemReset,
     frequency = FixedFrequency(axiFrequency)
   )
@@ -341,25 +429,30 @@ class BrieyDE4(config: BrieyDE4Config) extends Component{
     )
     val rom = new OnChipROM
     rom.io.iAddr := ram.io.bram.addr
-    rom.io.iClk := io.axiClk // This is ok?
+    //rom.io.iClk := axiClk // NOTE: Seems that if the blackbox already defines the domain, there is no need to connect this
     rom.io.iCS := ram.io.bram.en
     rom.io.iWrByteEn := ram.io.bram.we
     rom.io.iWrData := ram.io.bram.wrdata
     rom.io.iWrEn := ram.io.bram.we =/= 0 // This is also ok?
     ram.io.bram.rddata := rom.io.oRdData
 
-    val ddr = new Axi4SharedToQSYS(
+    val ddr = new Axi4ToQSYS(
       Axi4Config(
         addressWidth = 32,
         dataWidth    = 32,
         idWidth      = 4,
-        useLock      = false,
+        useLock      = true,
         useRegion    = false,
         useCache     = false,
-        useProt      = false,
-        useQos       = false
-      )
+        useProt      = true,
+        useQos       = true
+      ),
+      0x80000000l
     )
+    axiClk := ddr.io.ckrst.dimmclk_clk
+    ddr.io.ckrst.refclk_clk := io.refClk
+    ddr.io.ckrst.reset_reset_n := io.ddr_reset_n
+    io.port <> ddr.io.port
 
     val apbBridge = Axi4SharedToApb3Bridge(
       addressWidth = 20,
@@ -404,8 +497,8 @@ class BrieyDE4(config: BrieyDE4Config) extends Component{
     val axiCrossbar = Axi4CrossbarFactory()
 
     axiCrossbar.addSlaves(
-      ram.io.axi       -> (0x80000000L,   onChipRamSize),
-      ddr.io.axi       -> (0x40000000L,   ddr.capacity),
+      ram.io.axi       -> (0x40000000L,   onChipRamSize),
+      ddr.io.axi       -> (0x80000000L,   ddr.capacity),
       apbBridge.io.axi -> (0xF0000000L,   1 MB)
     )
 
@@ -422,12 +515,13 @@ class BrieyDE4(config: BrieyDE4Config) extends Component{
       crossbar.readRsp              << bridge.readRsp
     })
 
-    axiCrossbar.addPipelining(ddr.io.axi)((crossbar,ctrl) => {
+    // TODO: IMPORTANT: Axi4 is not compatible with the addPipelining. Probably is not necessary, but who knows?
+    /*axiCrossbar.addPipelining(ddr.io.axi)((crossbar,ctrl) => {
       crossbar.sharedCmd.halfPipe()  >>  ctrl.sharedCmd
       crossbar.writeData            >/-> ctrl.writeData
       crossbar.writeRsp              <<  ctrl.writeRsp
       crossbar.readRsp               <<  ctrl.readRsp
-    })
+    })*/
 
     axiCrossbar.addPipelining(ram.io.axi)((crossbar,ctrl) => {
       crossbar.sharedCmd.halfPipe()  >>  ctrl.sharedCmd
