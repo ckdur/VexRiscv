@@ -202,9 +202,9 @@ trait QuartusClocksReset extends Bundle {
 trait QuartusUserSignals extends Bundle {
   val oct_rdn               = in (Bool())
   val oct_rup               = in (Bool())
-  val mem_status_local_init_done = out (Bool())
-  val mem_status_local_cal_success = out (Bool())
-  val mem_status_local_cal_fail = out (Bool())
+  val mem_if_ddr2_emif_0_status_local_init_done = out (Bool())
+  val mem_if_ddr2_emif_0_status_local_cal_success = out (Bool())
+  val mem_if_ddr2_emif_0_status_local_cal_fail = out (Bool())
 }
 
 class QuartusIO extends QuartusDDR with QuartusUserSignals
@@ -218,10 +218,6 @@ class qsys extends BlackBox {
     val axi4_awlen = in (UInt((8) bits))
     val axi4_awsize = in (UInt((3) bits))
     val axi4_awburst = in (Bits((2) bits))
-    val axi4_awlock = in (Bits((1) bits))
-    val axi4_awcache = in (UInt((4) bits))
-    val axi4_awprot = in (Bits((3) bits))
-    val axi4_awqos = in (Bits((4) bits))
     val axi4_awvalid = in (Bool())
     val axi4_awready = out (Bool())
     //slave interface write data ports
@@ -241,10 +237,6 @@ class qsys extends BlackBox {
     val axi4_arlen = in (UInt((8) bits))
     val axi4_arsize = in (UInt((3) bits))
     val axi4_arburst = in (Bits((2) bits))
-    val axi4_arlock = in (Bits((1) bits))
-    val axi4_arcache = in (UInt((4) bits))
-    val axi4_arprot = in (Bits((3) bits))
-    val axi4_arqos = in (Bits((4) bits))
     val axi4_arvalid = in (Bool())
     val axi4_arready = out (Bool())
     //slave interface read data ports
@@ -294,9 +286,9 @@ class Axi4ToQSYS(axiConfig: Axi4Config, offset: BigInt) extends Component {
   io.ckrst.dimmclk_clk       := blackbox.io.dimmclk_clk
   blackbox.io.oct_rdn       := io.port.oct_rdn
   blackbox.io.oct_rup       := io.port.oct_rup
-  io.port.mem_status_local_init_done := blackbox.io.mem_status_local_init_done
-  io.port.mem_status_local_cal_success := blackbox.io.mem_status_local_cal_success
-  io.port.mem_status_local_cal_fail := blackbox.io.mem_status_local_cal_fail
+  io.port.mem_if_ddr2_emif_0_status_local_init_done := blackbox.io.mem_if_ddr2_emif_0_status_local_init_done
+  io.port.mem_if_ddr2_emif_0_status_local_cal_success := blackbox.io.mem_if_ddr2_emif_0_status_local_cal_success
+  io.port.mem_if_ddr2_emif_0_status_local_cal_fail := blackbox.io.mem_if_ddr2_emif_0_status_local_cal_fail
 
   val awaddr = axi_async.aw.addr - offset
   val araddr = axi_async.ar.addr - offset
@@ -307,10 +299,6 @@ class Axi4ToQSYS(axiConfig: Axi4Config, offset: BigInt) extends Component {
   blackbox.io.axi4_awlen   := axi_async.aw.len
   blackbox.io.axi4_awsize  := axi_async.aw.size
   blackbox.io.axi4_awburst := axi_async.aw.burst
-  blackbox.io.axi4_awlock  := axi_async.aw.lock
-  blackbox.io.axi4_awcache := U"0011"
-  blackbox.io.axi4_awprot  := axi_async.aw.prot
-  blackbox.io.axi4_awqos   := axi_async.aw.qos
   blackbox.io.axi4_awvalid := axi_async.aw.valid
   axi_async.aw.ready        := blackbox.io.axi4_awready
 
@@ -333,10 +321,6 @@ class Axi4ToQSYS(axiConfig: Axi4Config, offset: BigInt) extends Component {
   blackbox.io.axi4_arlen   := axi_async.ar.len
   blackbox.io.axi4_arsize  := axi_async.ar.size
   blackbox.io.axi4_arburst := axi_async.ar.burst
-  blackbox.io.axi4_arlock  := axi_async.ar.lock
-  blackbox.io.axi4_arcache := U"0011"
-  blackbox.io.axi4_arprot  := axi_async.ar.prot
-  blackbox.io.axi4_arqos   := axi_async.ar.qos
   blackbox.io.axi4_arvalid := axi_async.ar.valid
   axi_async.ar.ready        := blackbox.io.axi4_arready
 
@@ -441,11 +425,11 @@ class BrieyDE4(config: BrieyDE4Config) extends Component{
         addressWidth = 32,
         dataWidth    = 32,
         idWidth      = 4,
-        useLock      = true,
+        useLock      = false,
         useRegion    = false,
         useCache     = false,
-        useProt      = true,
-        useQos       = true
+        useProt      = false,
+        useQos       = false
       ),
       0x80000000l
     )
@@ -543,9 +527,9 @@ class BrieyDE4(config: BrieyDE4Config) extends Component{
       master = apbBridge.io.apb,
       slaves = List(
         gpioACtrl.io.apb -> (0x00000, 4 kB),
-        uartCtrl.io.apb  -> (0x10000, 4 kB),
-        timerCtrl.io.apb -> (0x20000, 4 kB),
-        spiCtrl.io.apb   -> (0x30000, 4 kB)
+        spiCtrl.io.apb   -> (0x10000, 4 kB),
+        uartCtrl.io.apb  -> (0x20000, 4 kB),
+        timerCtrl.io.apb -> (0x30000, 4 kB)
       )
     )
   }
