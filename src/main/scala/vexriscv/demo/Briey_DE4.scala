@@ -405,20 +405,22 @@ class BrieyDE4(config: BrieyDE4Config) extends Component{
   )
 
   val axi = new ClockingArea(axiClockDomain) {
-    val ram = new Axi4SharedToBram(
+    // TODO: NOTE: It seems that the BRAM does not translate to the BRAM addresses. Thats unconvenient
+    // The addres width of the SRAM is 11, but we need to put 13 and just extract the 11 MSB
+    val ram = new Axi4SharedToSRAM(
       addressAxiWidth = 32,
-      addressBRAMWidth = 11,
+      addressSRAMWidth = 13,
       dataWidth = 32,
       idWidth = 4
     )
     val rom = new OnChipROM
-    rom.io.iAddr := ram.io.bram.addr
+    rom.io.iAddr := ram.io.sram.addr(12 downto 2)
     //rom.io.iClk := axiClk // NOTE: Seems that if the blackbox already defines the domain, there is no need to connect this
-    rom.io.iCS := ram.io.bram.en
-    rom.io.iWrByteEn := ram.io.bram.we
-    rom.io.iWrData := ram.io.bram.wrdata
-    rom.io.iWrEn := ram.io.bram.we =/= 0 // This is also ok?
-    ram.io.bram.rddata := rom.io.oRdData
+    rom.io.iCS := ram.io.sram.en
+    rom.io.iWrByteEn := ram.io.sram.wstrb
+    rom.io.iWrData := ram.io.sram.wrdata
+    rom.io.iWrEn :=  ram.io.sram.we
+    ram.io.sram.rddata := rom.io.oRdData
 
     val ddr = new Axi4ToQSYS(
       Axi4Config(
@@ -527,9 +529,9 @@ class BrieyDE4(config: BrieyDE4Config) extends Component{
       master = apbBridge.io.apb,
       slaves = List(
         gpioACtrl.io.apb -> (0x00000, 4 kB),
-        spiCtrl.io.apb   -> (0x10000, 4 kB),
-        uartCtrl.io.apb  -> (0x20000, 4 kB),
-        timerCtrl.io.apb -> (0x30000, 4 kB)
+        spiCtrl.io.apb   -> (0x02000, 4 kB),
+        uartCtrl.io.apb  -> (0x10000, 4 kB),
+        timerCtrl.io.apb -> (0x20000, 4 kB)
       )
     )
   }
