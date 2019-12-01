@@ -28,8 +28,8 @@ object BrieyDE4Config{
 
   def default = {
     val config = BrieyDE4Config(
-      axiFrequency = 50 MHz,
-      onChipRamSize  = 4 kB,
+      axiFrequency = 100 MHz,
+      onChipRamSize  = 8 kB,
       uartCtrlConfig = UartCtrlMemoryMappedConfig(
         uartCtrlConfig = UartCtrlGenerics(
           dataWidthMax      = 8,

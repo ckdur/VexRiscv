@@ -44,7 +44,7 @@ case class Axi4SharedToSRAM(addressAxiWidth: Int, addressSRAMWidth: Int, dataWid
   val arw = io.axi.arw.unburstify
   val stage0 = arw.haltWhen(arw.write && !io.axi.writeData.valid)
   io.axi.readRsp.data := io.sram.rddata
-  io.sram.addr := stage0.addr(axiConfig.wordRange).resized
+  io.sram.addr := stage0.addr.resized
   io.sram.wrdata := io.axi.writeData.data
   io.sram.en := stage0.fire
   io.sram.we := stage0.write
